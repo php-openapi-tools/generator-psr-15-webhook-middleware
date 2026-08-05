@@ -23,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 use WyriHaximus\TestUtilities\TestCase;
 
 use function class_exists;
+use function in_array;
 use function is_string;
 use function is_subclass_of;
 use function iterator_to_array;
@@ -33,8 +34,8 @@ final class WebHookMiddlewareTest extends TestCase
     #[DataProviderExternal(Provider::class, 'sets')]
     public function generate(DataSet $dataSet): void
     {
-        if ($dataSet->name !== 'BasicWebHooks') {
-            self::markTestSkipped('Only the BasicWebHooks dataset is relevant for this generator.');
+        if (! in_array($dataSet->name, ['BasicWebHooks', 'DiscriminatedWebHooks', 'MultiVariantWebHooks'], true)) {
+            self::markTestSkipped('No webhook middleware assertion class for dataset: ' . $dataSet->name);
         }
 
         $representation = $this->loadSpec($dataSet->fileName);

@@ -1,0 +1,214 @@
+openapi: "3.1.0"
+info:
+  version: 1.0.0
+  title: Swagger Petstore
+  license:
+    name: MIT
+servers:
+  - url: http://api.example.com/v1/
+webhooks:
+  healthCheck:
+    post:
+      summary: Health check webhook
+      description: A health check event sent to verify a webhook configuration.
+      operationId: health-check/received
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: healthCheck
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/healthCheck"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  inventoryUpdate:
+    post:
+      summary: Inventory update webhook
+      description: An inventory update event sent when stock levels change.
+      operationId: inventory/update
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: inventoryUpdate
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/inventoryUpdate"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  petLifecycle:
+    post:
+      summary: Pet lifecycle webhook
+      description: A pet lifecycle event resolved by an `eventType` discriminator in the payload.
+      operationId: pet-lifecycle/received
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/adoptedPet"
+                - $ref: "#/components/schemas/surrenderedPet"
+              discriminator:
+                propertyName: eventType
+                mapping:
+                  adopted: "#/components/schemas/adoptedPet"
+                  surrendered: "#/components/schemas/surrenderedPet"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  storePolicy:
+    post:
+      summary: Store policy webhook
+      description: A store policy event resolved by an `action` discriminator in the payload.
+      operationId: store-policy/received
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/webhook-store-policy-created"
+                - $ref: "#/components/schemas/webhook-store-policy-deleted"
+              discriminator:
+                propertyName: action
+                mapping:
+                  created: "#/components/schemas/webhook-store-policy-created"
+                  deleted: "#/components/schemas/webhook-store-policy-deleted"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+components:
+  schemas:
+    healthCheck:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+    inventoryUpdate:
+      type: object
+      required:
+        - sku
+        - quantity
+      properties:
+        sku:
+          type: string
+        quantity:
+          type: integer
+    adoptedPet:
+      type: object
+      required:
+        - eventType
+        - name
+      properties:
+        eventType:
+          type: string
+          enum: [adopted]
+        name:
+          type: string
+    surrenderedPet:
+      type: object
+      required:
+        - eventType
+        - name
+      properties:
+        eventType:
+          type: string
+          enum: [surrendered]
+        name:
+          type: string
+    webhook-store-policy-created:
+      title: store policy created event
+      type: object
+      required:
+        - action
+        - policy
+        - store
+      properties:
+        action:
+          type: string
+          enum: [created]
+        franchise:
+          $ref: "#/components/schemas/franchise-webhooks"
+        registration:
+          $ref: "#/components/schemas/store-registration"
+        chain:
+          $ref: "#/components/schemas/chain-webhooks"
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+        policy:
+          $ref: "#/components/schemas/policy_rule"
+        customer:
+          $ref: "#/components/schemas/customer"
+    webhook-store-policy-deleted:
+      title: store policy deleted event
+      type: object
+      required:
+        - action
+        - policy
+        - store
+      properties:
+        action:
+          type: string
+          enum: [deleted]
+        franchise:
+          $ref: "#/components/schemas/franchise-webhooks"
+        registration:
+          $ref: "#/components/schemas/store-registration"
+        chain:
+          $ref: "#/components/schemas/chain-webhooks"
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+        policy:
+          $ref: "#/components/schemas/policy_rule"
+        customer:
+          $ref: "#/components/schemas/customer"
+    franchise-webhooks:
+      type: object
+      properties:
+        slug:
+          type: string
+    store-registration:
+      type: object
+      properties:
+        id:
+          type: integer
+    chain-webhooks:
+      type: object
+      properties:
+        name:
+          type: string
+    store-webhooks:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    policy_rule:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+    customer:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string

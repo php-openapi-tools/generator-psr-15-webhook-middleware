@@ -7,18 +7,19 @@ namespace OpenAPITools\Generator\PSR15\WebHook;
 use OpenAPITools\Contract\FileGenerator;
 use OpenAPITools\Contract\Package;
 use OpenAPITools\Contract\WebHookHandlerInterface;
+use OpenAPITools\Generator\Utils\Builder\ExpressionBuilder;
+use OpenAPITools\Generator\Utils\Builder\StatementBuilder;
 use OpenAPITools\Representation;
 use OpenAPITools\Utils\ClassString;
 use OpenAPITools\Utils\File;
 use OpenAPITools\Utils\Namespace_;
 use PhpParser\BuilderFactory;
-use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Name;
-use PhpParser\Node\Scalar;
 use PhpParser\Node\Stmt;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Throwable;
 
@@ -45,6 +46,22 @@ final readonly class WebHookMiddleware implements FileGenerator
 
         /** @var Package&object{namespace: Namespace_, destination: object{source: string}} $typedPackage */
         $typedPackage = $package;
+
+        $payloadSchemas = Internal\ResolveExpressionBuilder::collectPayloadSchemas(
+            $representation->schemas,
+            $representation->webHooks,
+        );
+
+        yield new InternalWebHookHydratorGenerator($this->builderFactory)->generate($typedPackage, $payloadSchemas);
+
+        yield from new InternalWebHooksGenerator(
+            $this->builderFactory,
+            new Internal\ResolveExpressionBuilder(),
+        )->generate(
+            $typedPackage,
+            $representation->webHooks,
+            $representation->schemas,
+        );
 
         yield $this->generateInvalidWebHookRequestException($typedPackage);
         yield $this->generateMiddleware($typedPackage);
@@ -73,14 +90,14 @@ final readonly class WebHookMiddleware implements FileGenerator
     private function generateMiddleware(Package $package): File
     {
         $className          = ClassString::factory($package->namespace, 'WebHookMiddleware');
-        $webHooksClassName  = ClassString::factory($package->namespace, 'WebHooks');
+        $webHooksClassName  = ClassString::factory($package->namespace, 'Internal\\WebHook\\WebHooks');
         $exceptionClassName = ClassString::factory($package->namespace, 'Internal\\WebHook\\InvalidWebHookRequestException');
 
         $class = $this->builderFactory
             ->class($className->className)
             ->makeFinal()
             ->makeReadonly()
-            ->implement('\\Psr\\Http\\Server\\MiddlewareInterface')
+            ->implement(MiddlewareInterface::class)
             ->addStmt(
                 $this->builderFactory->method('__construct')->makePublic()->addParams([
                     $this->builderFactory->param('webHooks')
@@ -109,7 +126,7 @@ final readonly class WebHookMiddleware implements FileGenerator
                 new Stmt\Use_([new Stmt\UseUse(new Name($webHooksClassName->fullyQualified->source, ['alias' => 'WebHooks']))]),
                 new Stmt\Use_([new Stmt\UseUse(new Name(ResponseInterface::class))]),
                 new Stmt\Use_([new Stmt\UseUse(new Name(ServerRequestInterface::class))]),
-                new Stmt\Use_([new Stmt\UseUse(new Name('Psr\\Http\\Server\\MiddlewareInterface'))]),
+                new Stmt\Use_([new Stmt\UseUse(new Name(MiddlewareInterface::class))]),
                 new Stmt\Use_([new Stmt\UseUse(new Name(RequestHandlerInterface::class))]),
                 $class->getNode(),
             ])->getNode(),
@@ -142,31 +159,25 @@ final readonly class WebHookMiddleware implements FileGenerator
     private function buildPathGuardStatement(): Stmt\If_
     {
         return new Stmt\If_(
-            new Expr\BinaryOp\BooleanAnd(
+            ExpressionBuilder::andAll([
                 new Expr\BinaryOp\NotIdentical(
-                    new Expr\PropertyFetch(new Expr\Variable('this'), 'paths'),
+                    ExpressionBuilder::thisProperty('paths'),
                     new Expr\Array_([]),
                 ),
                 new Expr\BooleanNot(
-                    new Expr\FuncCall(new Name('in_array'), [
-                        new Arg(new Expr\MethodCall(
-                            new Expr\MethodCall(new Expr\Variable('request'), 'getUri'),
+                    ExpressionBuilder::funcCall('in_array', [
+                        ExpressionBuilder::methodCall(
+                            ExpressionBuilder::methodCall(ExpressionBuilder::var('request'), 'getUri'),
                             'getPath',
-                        )),
-                        new Arg(new Expr\PropertyFetch(new Expr\Variable('this'), 'paths')),
-                        new Arg(new Expr\ConstFetch(new Name('true'))),
+                        ),
+                        ExpressionBuilder::thisProperty('paths'),
+                        ExpressionBuilder::true(),
                     ]),
                 ),
-            ),
+            ]),
             [
                 'stmts' => [
-                    new Stmt\Return_(
-                        new Expr\MethodCall(
-                            new Expr\Variable('handler'),
-                            'handle',
-                            [new Arg(new Expr\Variable('request'))],
-                        ),
-                    ),
+                    StatementBuilder::returnMethodCall('handler', 'handle', ['request']),
                 ],
             ],
         );
@@ -175,55 +186,25 @@ final readonly class WebHookMiddleware implements FileGenerator
     /** @return list<Stmt> */
     private function buildBodyValidationStatements(): array
     {
-        $throwMissingBody = new Stmt\Expression(
-            new Expr\Throw_(
-                new Expr\New_(
-                    new Name('InvalidWebHookRequestException'),
-                    [new Arg(new Scalar\String_('Missing webhook request body'))],
-                ),
-            ),
-        );
-
-        $throwInvalidBody = new Stmt\Expression(
-            new Expr\Throw_(
-                new Expr\New_(
-                    new Name('InvalidWebHookRequestException'),
-                    [new Arg(new Scalar\String_('Invalid webhook request body'))],
-                ),
-            ),
-        );
-
         return [
-            new Stmt\Expression(
-                new Expr\Assign(
-                    new Expr\Variable('body'),
-                    new Expr\Cast\String_(
-                        new Expr\MethodCall(new Expr\Variable('request'), 'getBody'),
-                    ),
-                ),
+            StatementBuilder::assign(
+                'body',
+                new Expr\Cast\String_(ExpressionBuilder::methodCall(ExpressionBuilder::var('request'), 'getBody')),
             ),
             new Stmt\If_(
-                new Expr\BinaryOp\Identical(
-                    new Expr\Variable('body'),
-                    new Scalar\String_(''),
-                ),
-                ['stmts' => [$throwMissingBody]],
+                ExpressionBuilder::identical(ExpressionBuilder::var('body'), ExpressionBuilder::literalString('')),
+                ['stmts' => [ExpressionBuilder::throwNew('InvalidWebHookRequestException', [ExpressionBuilder::literalString('Missing webhook request body')])]],
             ),
-            new Stmt\Expression(
-                new Expr\Assign(
-                    new Expr\Variable('data'),
-                    new Expr\FuncCall(new Name('json_decode'), [
-                        new Arg(new Expr\Variable('body')),
-                        new Arg(new Expr\ConstFetch(new Name('true'))),
-                    ]),
-                ),
+            StatementBuilder::assign(
+                'data',
+                ExpressionBuilder::funcCall('json_decode', ['body', ExpressionBuilder::true()]),
             ),
             new Stmt\If_(
                 new Expr\BinaryOp\NotIdentical(
-                    new Expr\FuncCall(new Name('is_array'), [new Arg(new Expr\Variable('data'))]),
-                    new Expr\ConstFetch(new Name('true')),
+                    ExpressionBuilder::funcCall('is_array', ['data']),
+                    ExpressionBuilder::true(),
                 ),
-                ['stmts' => [$throwInvalidBody]],
+                ['stmts' => [ExpressionBuilder::throwNew('InvalidWebHookRequestException', [ExpressionBuilder::literalString('Invalid webhook request body')])]],
             ),
         ];
     }
@@ -232,79 +213,53 @@ final readonly class WebHookMiddleware implements FileGenerator
     private function buildResolveAndHandleStatements(): array
     {
         return [
-            new Stmt\Expression(
-                new Expr\Assign(
-                    new Expr\Variable('headers'),
-                    new Expr\Array_([]),
-                ),
-            ),
+            StatementBuilder::assign('headers', new Expr\Array_([])),
             new Stmt\Foreach_(
-                new Expr\MethodCall(new Expr\Variable('request'), 'getHeaders'),
-                new Expr\Variable('values'),
+                ExpressionBuilder::methodCall(ExpressionBuilder::var('request'), 'getHeaders'),
+                ExpressionBuilder::var('values'),
                 [
-                    'keyVar' => new Expr\Variable('name'),
+                    'keyVar' => ExpressionBuilder::var('name'),
                     'stmts' => [
-                        new Stmt\Expression(
-                            new Expr\Assign(
-                                new Expr\ArrayDimFetch(
-                                    new Expr\Variable('headers'),
-                                    new Expr\FuncCall(new Name('strtolower'), [
-                                        new Arg(new Expr\Variable('name')),
-                                    ]),
-                                ),
-                                new Expr\ArrayDimFetch(
-                                    new Expr\Variable('values'),
-                                    new Scalar\LNumber(0),
-                                ),
+                        StatementBuilder::assign(
+                            ExpressionBuilder::arrayFetchKey(
+                                'headers',
+                                ExpressionBuilder::funcCall('strtolower', ['name']),
                             ),
+                            ExpressionBuilder::arrayFetchKey('values', ExpressionBuilder::literalInt(0)),
                         ),
                     ],
                 ],
             ),
             new Stmt\TryCatch(
                 [
-                    new Stmt\Expression(
-                        new Expr\Assign(
-                            new Expr\Variable('payload'),
-                            new Expr\MethodCall(
-                                new Expr\PropertyFetch(new Expr\Variable('this'), 'webHooks'),
-                                'resolve',
-                                [
-                                    new Arg(new Expr\Variable('headers')),
-                                    new Arg(new Expr\Variable('data')),
-                                ],
-                            ),
+                    StatementBuilder::assign(
+                        'payload',
+                        ExpressionBuilder::methodCall(
+                            ExpressionBuilder::thisProperty('webHooks'),
+                            'resolve',
+                            ['headers', 'data'],
                         ),
                     ),
                 ],
                 [
                     new Stmt\Catch_(
                         [new Name('\\' . Throwable::class)],
-                        new Expr\Variable('throwable'),
+                        ExpressionBuilder::var('throwable'),
                         [
-                            new Stmt\Expression(
-                                new Expr\Throw_(
-                                    new Expr\New_(
-                                        new Name('InvalidWebHookRequestException'),
-                                        [
-                                            new Arg(new Scalar\String_('Failed to resolve webhook')),
-                                            new Arg(new Scalar\LNumber(0)),
-                                            new Arg(new Expr\Variable('throwable')),
-                                        ],
-                                    ),
-                                ),
-                            ),
+                            ExpressionBuilder::throwNew('InvalidWebHookRequestException', [
+                                ExpressionBuilder::literalString('Failed to resolve webhook'),
+                                ExpressionBuilder::literalInt(0),
+                                'throwable',
+                            ]),
                         ],
                     ),
                 ],
             ),
             new Stmt\Return_(
-                new Expr\MethodCall(
-                    new Expr\PropertyFetch(new Expr\Variable('this'), 'handler'),
+                ExpressionBuilder::methodCall(
+                    ExpressionBuilder::thisProperty('handler'),
                     'handle',
-                    [
-                        new Arg(new Expr\Variable('payload')),
-                    ],
+                    ['payload'],
                 ),
             ),
         ];
@@ -314,7 +269,7 @@ final readonly class WebHookMiddleware implements FileGenerator
     {
         return new Expr\Array_(
             array_map(
-                static fn (string $path): Expr\ArrayItem => new Expr\ArrayItem(new Scalar\String_($path)),
+                static fn (string $path): Expr\ArrayItem => new Expr\ArrayItem(ExpressionBuilder::literalString($path)),
                 $this->defaultPaths,
             ),
         );

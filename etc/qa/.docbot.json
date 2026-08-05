@@ -1,0 +1,5 @@
+{
+    "core.paths": "../docs",
+    "core.output_path": ".",
+    "core.workspace_dir": "../../var/docbot-workspace"
+}
