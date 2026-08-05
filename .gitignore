@@ -1,0 +1,5 @@
+var/*
+!var/.gitkeep
+vendor/
+etc/qa/.phpcs.cache
+etc/qa/.phpunit.result.cache
