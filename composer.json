@@ -27,7 +27,7 @@
         "openapi-tools/configuration": "^0.1.0",
         "openapi-tools/gatherer": "^0.1.0",
         "openapi-tools/test-data": "^0.1.0",
-        "wyrihaximus/async-test-utilities": "^13.5.1",
+        "wyrihaximus/async-test-utilities": "^14.1.0",
         "wyrihaximus/makefiles": "^0.13.3"
     },
     "minimum-stability": "dev",
