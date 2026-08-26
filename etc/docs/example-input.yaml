@@ -18,6 +18,7 @@ webhooks:
           example: healthCheck
           schema:
             type: string
+            enum: [healthCheck]
       requestBody:
         required: true
         content:
@@ -38,12 +39,145 @@ webhooks:
           example: inventoryUpdate
           schema:
             type: string
+            enum: [inventoryUpdate]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/inventoryUpdate"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  storeHoursDisabled:
+    post:
+      summary: Store hours disabled webhook
+      description: |
+        Emitted when automatic store-hour enforcement is turned off.
+        Shares the `action` body field with other events; `disabled` is a globally unique enum value.
+      operationId: store-hours/disabled
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: storeHours
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-store-hours-disabled"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  storeHoursEnabled:
+    post:
+      summary: Store hours enabled webhook
+      description: |
+        Emitted when automatic store-hour enforcement is turned on.
+        Resolved in the same partial `action` match group as `storeHoursDisabled`.
+      operationId: store-hours/enabled
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: storeHours
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-store-hours-enabled"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  petCommentCreated:
+    post:
+      summary: Pet comment created webhook
+      description: |
+        One of several events whose required `action` enum is `created`.
+        After unique `action` values are handled, this variant is resolved by its required fields.
+      operationId: pet-comment/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: petComment
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-pet-comment-created"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  catalogDefinitionCreated:
+    post:
+      summary: Catalog definition created webhook
+      description: |
+        Also uses `action: created`, but requires `definition` instead of `comment`.
+        Shows how colliding enum values fall through to required-field partitioning.
+      operationId: catalog-definition/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: catalogDefinition
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-catalog-definition-created"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  orderCreated:
+    post:
+      summary: Order created webhook
+      description: |
+        Another `action: created` event. When several variants share the same top-level enum value,
+        a required nested enum (`metadata.kind`) provides the next discrimination step.
+      operationId: order/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: order
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-order-created"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  appointmentCreated:
+    post:
+      summary: Appointment created webhook
+      description: |
+        Also uses `action: created` with required `metadata`, but the nested `kind` enum is `appointment`
+        instead of `order`.
+      operationId: appointment/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: appointment
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-appointment-created"
       responses:
         "200":
           description: Return a 200 status to indicate that the data was received successfully
@@ -94,8 +228,12 @@ components:
     healthCheck:
       type: object
       required:
+        - eventType
         - message
       properties:
+        eventType:
+          type: string
+          enum: [healthCheck]
         message:
           type: string
     inventoryUpdate:
@@ -108,6 +246,145 @@ components:
           type: string
         quantity:
           type: integer
+    webhook-store-hours-disabled:
+      title: store hours disabled event
+      type: object
+      required:
+        - action
+        - store
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [disabled]
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+        sender:
+          $ref: "#/components/schemas/customer"
+    webhook-store-hours-enabled:
+      title: store hours enabled event
+      type: object
+      required:
+        - action
+        - store
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [enabled]
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+        sender:
+          $ref: "#/components/schemas/customer"
+    webhook-pet-comment-created:
+      title: pet comment created event
+      type: object
+      required:
+        - action
+        - comment
+        - pet
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [created]
+        comment:
+          $ref: "#/components/schemas/pet-comment"
+        pet:
+          $ref: "#/components/schemas/pet-summary"
+        sender:
+          $ref: "#/components/schemas/customer"
+    webhook-catalog-definition-created:
+      title: catalog definition created event
+      type: object
+      required:
+        - action
+        - definition
+      properties:
+        action:
+          type: string
+          enum: [created]
+        definition:
+          $ref: "#/components/schemas/catalog-definition"
+    webhook-order-created:
+      title: order created event
+      type: object
+      required:
+        - action
+        - metadata
+        - store
+      properties:
+        action:
+          type: string
+          enum: [created]
+        metadata:
+          $ref: "#/components/schemas/webhook-metadata-order"
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+    webhook-appointment-created:
+      title: appointment created event
+      type: object
+      required:
+        - action
+        - metadata
+        - store
+      properties:
+        action:
+          type: string
+          enum: [created]
+        metadata:
+          $ref: "#/components/schemas/webhook-metadata-appointment"
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+    webhook-metadata-order:
+      type: object
+      required:
+        - kind
+        - reference
+      properties:
+        kind:
+          type: string
+          enum: [order]
+        reference:
+          type: string
+    webhook-metadata-appointment:
+      type: object
+      required:
+        - kind
+        - reference
+      properties:
+        kind:
+          type: string
+          enum: [appointment]
+        reference:
+          type: string
+    pet-comment:
+      type: object
+      required:
+        - id
+        - body
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+    pet-summary:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    catalog-definition:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
     adoptedPet:
       type: object
       required:
