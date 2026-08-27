@@ -28,7 +28,7 @@
         "openapi-tools/gatherer": "^0.1.0",
         "openapi-tools/test-data": "^0.1.0",
         "wyrihaximus/async-test-utilities": "^14.1.0",
-        "wyrihaximus/makefiles": "^0.13.3"
+        "wyrihaximus/makefiles": "^0.14.6"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
