@@ -138,7 +138,7 @@ return Article::create('../../README', 'generator-psr-15-webhook-middleware', [
             context: new CreateFileBlock('example-input.yaml', 'yaml', $exampleInput),
         ),
         new SectionBlock('Output', [
-            'Running gatherer + `WebHookMiddleware::generate()` against the input above emits these files. The spec defines four webhooks: `healthCheck` and `inventoryUpdate` are resolved by matching headers (and field fingerprints); `petLifecycle` and `storePolicy` use an `Event` enum with discriminator `match` on `eventType` and `action`. All resolution lives in `Internal\\WebHook\\WebHooks`:',
+            'Running gatherer + `WebHookMiddleware::generate()` against the input above emits these files. Header-resolved webhooks are grouped in nested `if` blocks that first narrow by declared header parameters (presence, then spec-constrained values), then by body enums and required fields. Discriminated webhooks (`petLifecycle`, `storePolicy`) are resolved first via `detectDiscriminatedEvent()`. All resolution lives in `Internal\\WebHook\\WebHooks`:',
             ...$generatedFileSections,
         ]),
         <<<'TEXT'
@@ -158,11 +158,12 @@ return Article::create('../../README', 'generator-psr-15-webhook-middleware', [
 
         For each webhook delivery, generated code resolves the payload in this order:
 
-        1. **Headers** — match declared webhook header parameters (e.g. `X-Event-Type`)
-        2. **Discriminator** — when the spec defines `discriminator`, match `$data[$propertyName]`
-        3. **Field fingerprint** — required fields must be present in `$data`
-        4. **Validation** — `SchemaValidator` against generated `SCHEMA_JSON`
-        5. **Hydration** — `Internal\WebHook\Hydrator` maps arrays to readonly schema objects (no EventSauce)
+        1. **Discriminator** — when the spec defines `discriminator`, match `$data[$propertyName]` via `detectDiscriminatedEvent()`
+        2. **Headers** — match declared webhook header parameters (e.g. `X-Petstore-Event`) and hoist shared presence checks
+        3. **Body enums** — partial `match` on required single-value enums (top-level and nested); colliding values recurse to deeper enums or required fields
+        4. **Field fingerprint** — remaining variants require their spec-mandated fields in `$data`
+        5. **Validation** — `SchemaValidator` against generated `SCHEMA_JSON`
+        6. **Hydration** — `Internal\WebHook\Hydrator` maps arrays to readonly schema objects (no EventSauce)
 
         ### Behaviour
 

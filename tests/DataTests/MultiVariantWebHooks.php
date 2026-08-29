@@ -15,10 +15,10 @@ final class MultiVariantWebHooks implements GeneratedFilesAssertion
         Assert::assertArrayHasKey('Internal\WebHook\WebHooks', $files);
 
         $webHooks = GeneratedFiles::contents($files, 'Internal\WebHook\WebHooks');
-        Assert::assertStringContainsString('resolveByHeaders', $webHooks);
+        Assert::assertStringNotContainsString('resolveByHeaders', $webHooks);
         Assert::assertStringContainsString('x-notify-variant', $webHooks);
-        Assert::assertStringContainsString("'alpha'", $webHooks);
-        Assert::assertStringContainsString("'beta'", $webHooks);
+        Assert::assertStringContainsString("'message'", $webHooks);
+        Assert::assertStringContainsString("'count'", $webHooks);
         Assert::assertStringContainsString('array_key_exists', $webHooks);
     }
 }

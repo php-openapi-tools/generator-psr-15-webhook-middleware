@@ -1,0 +1,66 @@
+openapi: "3.1.0"
+info:
+  version: 1.0.0
+  title: Resolve Expression Builder WebHook Test API
+  license:
+    name: MIT
+webhooks:
+  payload:
+    post:
+      summary: Payload webhook
+      operationId: payload/received
+      parameters:
+        - name: X-Event
+          in: header
+          schema:
+            type: string
+            const: payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/resolvePayload"
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    resolvePayload:
+      type: object
+      required:
+        - action
+        - repository
+        - sender
+        - metadata
+      properties:
+        action:
+          type: string
+          enum: [created]
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - login
+          properties:
+            login:
+              type: string
+        metadata:
+          type: object
+          required:
+            - kind
+          properties:
+            kind:
+              type: string
+              enum: [order]
+    emptyPayload:
+      type: object
+      properties:
+        optional:
+          type: string

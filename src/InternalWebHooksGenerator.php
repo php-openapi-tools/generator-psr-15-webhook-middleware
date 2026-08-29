@@ -6,6 +6,7 @@ namespace OpenAPITools\Generator\PSR15\WebHook;
 
 use League\OpenAPIValidation\Schema\SchemaValidator;
 use OpenAPITools\Contract\Package;
+use OpenAPITools\Generator\PSR15\WebHook\Internal\HeaderResolutionBuilder;
 use OpenAPITools\Generator\PSR15\WebHook\Internal\PayloadVariant;
 use OpenAPITools\Generator\PSR15\WebHook\Internal\PayloadVariantCollector;
 use OpenAPITools\Generator\PSR15\WebHook\Internal\ResolveExpressionBuilder;
@@ -20,12 +21,10 @@ use OpenAPITools\Utils\Namespace_;
 use PhpParser\BuilderFactory;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
-use PhpParser\Node\Identifier;
 use PhpParser\Node\MatchArm;
 use PhpParser\Node\Name;
 use PhpParser\Node\NullableType;
 use PhpParser\Node\Stmt;
-use PhpParser\Node\UnionType;
 use RuntimeException;
 
 use function array_filter;
@@ -189,6 +188,13 @@ final readonly class InternalWebHooksGenerator
         $class = $this->builderFactory->class($className->className)
             ->makeFinal()
             ->addStmt(
+                $this->builderFactory->property('parsedSchemas')
+                    ->makePrivate()
+                    ->makeStatic()
+                    ->setType('array')
+                    ->setDefault(new Expr\Array_([])),
+            )
+            ->addStmt(
                 $this->builderFactory->method('__construct')->makePublic()->addParams([
                     $this->builderFactory->param('requestSchemaValidator')->makePrivate()->makeReadonly()->setType('\\' . SchemaValidator::class),
                     $this->builderFactory->param('hydrator')->makePrivate()->makeReadonly()->setType($hydratorClass->fullyQualified->source),
@@ -200,7 +206,7 @@ final readonly class InternalWebHooksGenerator
             $class->addStmt($this->buildDetectDiscriminatedEventMethod($variants));
         }
 
-        if ($this->headerResolvedVariants($variants) !== []) {
+        if ($this->discriminatedVariants($variants) !== [] && $this->headerResolvedVariants($variants) !== []) {
             $class->addStmt($this->buildResolveByHeadersMethod($variants));
         }
 
@@ -224,8 +230,6 @@ final readonly class InternalWebHooksGenerator
                 $this->builderFactory->param('headers')->setType('array'),
                 $this->builderFactory->param('data')->setType('array'),
             ]);
-
-        $resolve->addStmt($this->normalizeHeadersStatement());
 
         $discriminatedVariants = $this->discriminatedVariants($variants);
         $headerVariants        = $this->headerResolvedVariants($variants);
@@ -256,19 +260,12 @@ final readonly class InternalWebHooksGenerator
                 ),
             );
         } else {
-            $resolve->addStmt(
-                new Stmt\Return_(ExpressionBuilder::thisMethod('resolveByHeaders', ['headers', 'data'])),
-            );
+            foreach ($this->buildHeaderResolutionStatements($variants) as $statement) {
+                $resolve->addStmt($statement);
+            }
         }
 
-        $returnTypes = [];
-        foreach ($variants as $variant) {
-            $returnTypes[$variant['variant']->schema->className->fullyQualified->source] = new Name(
-                $variant['variant']->schema->className->fullyQualified->source,
-            );
-        }
-
-        $resolve->setReturnType(new UnionType(array_values($returnTypes)));
+        $resolve->setReturnType('object');
 
         return $resolve->getNode();
     }
@@ -358,61 +355,38 @@ final readonly class InternalWebHooksGenerator
                 $this->builderFactory->param('data')->setType('array'),
             ]);
 
-        $method->addStmt(
+        foreach ($this->buildHeaderResolutionStatements($variants) as $statement) {
+            $method->addStmt($statement);
+        }
+
+        return $method->getNode();
+    }
+
+    /**
+     * @param list<array{variant: PayloadVariant, enumCase: string}> $variants
+     *
+     * @return list<Stmt>
+     */
+    private function buildHeaderResolutionStatements(array $variants): array
+    {
+        $statements = [
             StatementBuilder::assign(
                 'error',
                 ExpressionBuilder::newRuntimeException('No webhook matching given headers and data'),
             ),
-        );
+        ];
 
-        foreach ($this->headerResolvedVariants($variants) as $variant) {
-            $preconditions = $this->resolveExpressionBuilder->preconditions($variant['variant']);
-            $schemaClass   = $variant['variant']->schema->className->fullyQualified->source;
-
-            $tryBody = $preconditions instanceof Expr
-                ? [
-                    new Stmt\If_($preconditions, [
-                        'stmts' => [
-                            new Stmt\Return_(
-                                ExpressionBuilder::thisMethod('validatedHydrate', [
-                                    ExpressionBuilder::classConstant($schemaClass),
-                                    'data',
-                                ]),
-                            ),
-                        ],
-                    ]),
-                ]
-                : [
-                    new Stmt\Return_(
-                        ExpressionBuilder::thisMethod('validatedHydrate', [
-                            ExpressionBuilder::classConstant($schemaClass),
-                            'data',
-                        ]),
-                    ),
-                ];
-
-            $method->addStmt(
-                new Stmt\TryCatch(
-                    $tryBody,
-                    [
-                        ExpressionBuilder::catchThrowable('throwable', 'error'),
-                    ],
-                ),
-            );
+        foreach (
+            new HeaderResolutionBuilder($this->resolveExpressionBuilder)->buildStatements(
+                $this->headerResolvedVariants($variants),
+            ) as $resolutionStatement
+        ) {
+            $statements[] = $resolutionStatement;
         }
 
-        $method->addStmt(StatementBuilder::throwVariable('error'));
+        $statements[] = StatementBuilder::throwVariable('error');
 
-        $returnTypes = [];
-        foreach ($this->headerResolvedVariants($variants) as $variant) {
-            $returnTypes[$variant['variant']->schema->className->fullyQualified->source] = new Name(
-                $variant['variant']->schema->className->fullyQualified->source,
-            );
-        }
-
-        $method->setReturnType(new UnionType(array_values($returnTypes)));
-
-        return $method->getNode();
+        return $statements;
     }
 
     private function buildValidatedHydrateMethod(): Stmt\ClassMethod
@@ -426,16 +400,41 @@ final readonly class InternalWebHooksGenerator
             ]);
 
         $method->addStmt(
+            new Stmt\If_(
+                new Expr\BooleanNot(
+                    ExpressionBuilder::funcCall('array_key_exists', [
+                        'className',
+                        new Expr\StaticPropertyFetch(new Name('self'), 'parsedSchemas'),
+                    ]),
+                ),
+                [
+                    'stmts' => [
+                        StatementBuilder::assign(
+                            ExpressionBuilder::arrayFetchKey(
+                                new Expr\StaticPropertyFetch(new Name('self'), 'parsedSchemas'),
+                                ExpressionBuilder::var('className'),
+                            ),
+                            new Expr\StaticCall(new Name('\\cebe\\openapi\\Reader'), 'readFromJson', [
+                                new Arg(ExpressionBuilder::objectClassConstant('className', 'SCHEMA_JSON')),
+                                new Arg(ExpressionBuilder::classConstant('\\cebe\\openapi\\spec\\Schema')),
+                            ]),
+                        ),
+                    ],
+                ],
+            ),
+        );
+
+        $method->addStmt(
             new Stmt\Expression(
                 ExpressionBuilder::methodCall(
                     ExpressionBuilder::thisProperty('requestSchemaValidator'),
                     'validate',
                     [
                         'data',
-                        new Expr\StaticCall(new Name('\\cebe\\openapi\\Reader'), 'readFromJson', [
-                            new Arg(ExpressionBuilder::objectClassConstant('className', 'SCHEMA_JSON')),
-                            new Arg(ExpressionBuilder::classConstant('\\cebe\\openapi\\spec\\Schema')),
-                        ]),
+                        ExpressionBuilder::arrayFetchKey(
+                            new Expr\StaticPropertyFetch(new Name('self'), 'parsedSchemas'),
+                            ExpressionBuilder::var('className'),
+                        ),
                     ],
                 ),
             ),
@@ -452,41 +451,6 @@ final readonly class InternalWebHooksGenerator
         );
 
         return $method->getNode();
-    }
-
-    private function normalizeHeadersStatement(): Stmt\Expression
-    {
-        return StatementBuilder::assign(
-            'headers',
-            ExpressionBuilder::invoke(
-                new Expr\Closure([
-                    'static' => true,
-                    'params' => [$this->builderFactory->param('headers')->setType('array')->getNode()],
-                    'returnType' => new Identifier('array'),
-                    'stmts' => [
-                        StatementBuilder::assign('loweredHeaders', new Expr\Array_([])),
-                        new Stmt\Foreach_(
-                            ExpressionBuilder::var('headers'),
-                            ExpressionBuilder::var('value'),
-                            [
-                                'keyVar' => ExpressionBuilder::var('key'),
-                                'stmts' => [
-                                    StatementBuilder::assign(
-                                        ExpressionBuilder::arrayFetchKey(
-                                            'loweredHeaders',
-                                            ExpressionBuilder::funcCall('strtolower', ['key']),
-                                        ),
-                                        ExpressionBuilder::var('value'),
-                                    ),
-                                ],
-                            ],
-                        ),
-                        new Stmt\Return_(ExpressionBuilder::var('loweredHeaders')),
-                    ],
-                ]),
-                ['headers'],
-            ),
-        );
     }
 
     private function enumCaseConstFetch(string $enumCase): Expr\ClassConstFetch

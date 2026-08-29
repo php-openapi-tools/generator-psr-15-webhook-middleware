@@ -32,9 +32,12 @@ final class BasicWebHooks implements GeneratedFilesAssertion
         $webHooks = GeneratedFiles::contents($files, 'Internal\WebHook\WebHooks');
         Assert::assertStringContainsString('final class WebHooks', $webHooks);
         Assert::assertStringContainsString('Internal\\WebHook\\Hydrator $hydrator', $webHooks);
-        Assert::assertStringContainsString('resolveByHeaders', $webHooks);
+        Assert::assertStringNotContainsString('resolveByHeaders', $webHooks);
+        Assert::assertStringContainsString('public function resolve(array $headers, array $data): object', $webHooks);
         Assert::assertStringContainsString('x-event-type', $webHooks);
         Assert::assertStringContainsString('array_key_exists', $webHooks);
+        Assert::assertStringContainsString("'zen'", $webHooks);
+        Assert::assertStringContainsString("'ref'", $webHooks);
 
         $hydrator = GeneratedFiles::contents($files, 'Internal\WebHook\Hydrator');
         Assert::assertStringContainsString('public function hydrate(string $className, array $data): object', $hydrator);

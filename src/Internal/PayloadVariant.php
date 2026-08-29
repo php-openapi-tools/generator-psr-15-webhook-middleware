@@ -19,6 +19,8 @@ final readonly class PayloadVariant
         public array $headerConstraints,
         public Discriminator $discriminator,
         public string $discriminatorValue,
+        /** @var list<EnumFingerprint> */
+        public array $enumFingerprints,
     ) {
     }
 }

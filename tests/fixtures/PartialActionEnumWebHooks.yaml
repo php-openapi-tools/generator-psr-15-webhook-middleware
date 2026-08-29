@@ -1,0 +1,406 @@
+openapi: "3.1.0"
+info:
+  version: 1.0.0
+  title: Partial Action Enum WebHook Test API
+  license:
+    name: MIT
+webhooks:
+  branchProtectionConfigurationDisabled:
+    post:
+      summary: Branch protection configuration disabled
+      operationId: branch-protection-configuration/disabled
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-branch-protection-configuration-disabled"
+      responses:
+        "200":
+          description: OK
+  branchProtectionConfigurationEnabled:
+    post:
+      summary: Branch protection configuration enabled
+      operationId: branch-protection-configuration/enabled
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-branch-protection-configuration-enabled"
+      responses:
+        "200":
+          description: OK
+  commitCommentCreated:
+    post:
+      summary: Commit comment created
+      operationId: commit-comment/created
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-commit-comment-created"
+      responses:
+        "200":
+          description: OK
+  customPropertyCreated:
+    post:
+      summary: Custom property created
+      operationId: custom-property/created
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-custom-property-created"
+      responses:
+        "200":
+          description: OK
+  deploymentProtectionRuleRequested:
+    post:
+      summary: Deployment protection rule requested
+      operationId: deployment-protection-rule/requested
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-deployment-protection-rule-requested"
+      responses:
+        "200":
+          description: OK
+  checkSuiteRequested:
+    post:
+      summary: Check suite requested
+      operationId: check-suite/requested
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-check-suite-requested"
+      responses:
+        "200":
+          description: OK
+  discussionDeleted:
+    post:
+      summary: Discussion deleted
+      operationId: discussion/deleted
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-discussion-deleted"
+      responses:
+        "200":
+          description: OK
+  issuesDeleted:
+    post:
+      summary: Issues deleted
+      operationId: issues/deleted
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-issues-deleted"
+      responses:
+        "200":
+          description: OK
+  customPropertyDeleted:
+    post:
+      summary: Custom property deleted
+      operationId: custom-property/deleted
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-custom-property-deleted"
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    webhook-branch-protection-configuration-disabled:
+      type: object
+      required:
+        - action
+        - repository
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [disabled]
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-branch-protection-configuration-enabled:
+      type: object
+      required:
+        - action
+        - repository
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [enabled]
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-commit-comment-created:
+      type: object
+      required:
+        - action
+        - comment
+        - repository
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [created]
+        comment:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-custom-property-created:
+      type: object
+      required:
+        - action
+        - definition
+      properties:
+        action:
+          type: string
+          enum: [created]
+        definition:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-deployment-protection-rule-requested:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [requested]
+        deployment_callback_url:
+          type: string
+          format: uri
+        environment:
+          type: string
+        event:
+          type: string
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-check-suite-requested:
+      type: object
+      required:
+        - action
+        - check_suite
+        - repository
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [requested]
+        check_suite:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-discussion-deleted:
+      type: object
+      required:
+        - action
+        - discussion
+        - repository
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [deleted]
+        discussion:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-issues-deleted:
+      type: object
+      required:
+        - action
+        - issue
+        - repository
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [deleted]
+        issue:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        repository:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        sender:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    webhook-custom-property-deleted:
+      type: object
+      required:
+        - action
+        - definition
+      properties:
+        action:
+          type: string
+          enum: [deleted]
+        definition:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer

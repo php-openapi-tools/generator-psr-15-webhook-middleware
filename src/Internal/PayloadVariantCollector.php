@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenAPITools\Generator\PSR15\WebHook\Internal;
 
 use cebe\openapi\spec\Schema as BaseSchema;
+use OpenAPITools\Representation\Namespaced\Property;
 use OpenAPITools\Representation\Namespaced\Schema;
 use OpenAPITools\Representation\Namespaced\WebHook;
 use OpenAPITools\Representation\Namespaced\WebHookEvent;
@@ -12,6 +13,8 @@ use OpenAPITools\Utils\Utils;
 
 use function array_values;
 use function count;
+use function in_array;
+use function is_int;
 use function is_string;
 use function str_ends_with;
 use function str_starts_with;
@@ -52,15 +55,34 @@ final class PayloadVariantCollector
         $constraints = [];
 
         foreach ($webHook->headers as $header) {
-            $raw = $header->example->raw;
-            if (! is_string($raw)) {
-                continue;
-            }
-
-            $constraints[] = new HeaderConstraint(strtolower($header->name), $raw);
+            $value         = self::headerSchemaValue($header->schema->schema);
+            $constraints[] = $value !== null
+                ? HeaderConstraint::fixed(strtolower($header->name), $value)
+                : HeaderConstraint::presence(strtolower($header->name));
         }
 
         return $constraints;
+    }
+
+    private static function headerSchemaValue(BaseSchema $schema): string|null
+    {
+        /** @phpstan-ignore property.notFound (OpenAPI schema dynamic property) */
+        $const = $schema->const ?? null;
+        if (is_string($const) || is_int($const)) {
+            return (string) $const;
+        }
+
+        $enum = $schema->enum ?? [];
+        if (count($enum) !== 1) {
+            return null;
+        }
+
+        $value = $enum[0];
+        if (! is_string($value) && ! is_int($value)) {
+            return null;
+        }
+
+        return (string) $value;
     }
 
     /**
@@ -80,10 +102,9 @@ final class PayloadVariantCollector
                     continue;
                 }
 
-                $variants[] = new PayloadVariant(
+                $variants[] = self::payloadVariant(
                     $mappedSchema,
                     $contentType,
-                    self::requiredFields($mappedSchema->schema),
                     $headerConstraints,
                     $discriminator,
                     $discriminatorValue,
@@ -107,10 +128,9 @@ final class PayloadVariantCollector
                     continue;
                 }
 
-                $variants[] = new PayloadVariant(
+                $variants[] = self::payloadVariant(
                     $memberSchema,
                     $contentType,
-                    self::requiredFields($memberSchema->schema),
                     $headerConstraints,
                     self::discriminator($memberSchema->schema, $allSchemas),
                     '',
@@ -123,15 +143,84 @@ final class PayloadVariantCollector
         }
 
         return [
-            new PayloadVariant(
+            self::payloadVariant(
                 $schema,
                 $contentType,
-                self::requiredFields($schema->schema),
                 $headerConstraints,
                 Discriminator::none(),
                 '',
             ),
         ];
+    }
+
+    /** @param list<HeaderConstraint> $headerConstraints */
+    private static function payloadVariant(
+        Schema $schema,
+        string $contentType,
+        array $headerConstraints,
+        Discriminator $discriminator,
+        string $discriminatorValue,
+    ): PayloadVariant {
+        return new PayloadVariant(
+            $schema,
+            $contentType,
+            self::requiredFields($schema->schema),
+            $headerConstraints,
+            $discriminator,
+            $discriminatorValue,
+            self::enumFingerprints($schema),
+        );
+    }
+
+    /**
+     * @param list<string> $pathPrefix
+     *
+     * @return list<EnumFingerprint>
+     */
+    private static function enumFingerprints(Schema $schema, array $pathPrefix = []): array
+    {
+        $fingerprints = [];
+        $required     = self::requiredFields($schema->schema);
+
+        foreach ($schema->properties as $property) {
+            $propertyPath = [...$pathPrefix, $property->sourceName];
+            $isRequired   = in_array($property->sourceName, $required, true);
+
+            if (count($property->enum) === 1) {
+                $value = $property->enum[0];
+                if (is_string($value) || is_int($value)) {
+                    $fingerprints[] = new EnumFingerprint($propertyPath, (string) $value);
+                }
+            }
+
+            if (! $isRequired) {
+                continue;
+            }
+
+            $nestedSchema = self::nestedObjectSchema($property);
+            if (! ($nestedSchema instanceof Schema)) {
+                continue;
+            }
+
+            foreach (self::enumFingerprints($nestedSchema, $propertyPath) as $nestedFingerprint) {
+                $fingerprints[] = $nestedFingerprint;
+            }
+        }
+
+        return $fingerprints;
+    }
+
+    private static function nestedObjectSchema(Property $property): Schema|null
+    {
+        if ($property->type->type !== 'object') {
+            return null;
+        }
+
+        if ($property->type->payload instanceof Schema) {
+            return $property->type->payload;
+        }
+
+        return null;
     }
 
     /** @return list<string> */

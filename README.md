@@ -57,6 +57,7 @@ webhooks:
           example: healthCheck
           schema:
             type: string
+            enum: [healthCheck]
       requestBody:
         required: true
         content:
@@ -77,12 +78,145 @@ webhooks:
           example: inventoryUpdate
           schema:
             type: string
+            enum: [inventoryUpdate]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/inventoryUpdate"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  storeHoursDisabled:
+    post:
+      summary: Store hours disabled webhook
+      description: |
+        Emitted when automatic store-hour enforcement is turned off.
+        Shares the `action` body field with other events; `disabled` is a globally unique enum value.
+      operationId: store-hours/disabled
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: storeHours
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-store-hours-disabled"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  storeHoursEnabled:
+    post:
+      summary: Store hours enabled webhook
+      description: |
+        Emitted when automatic store-hour enforcement is turned on.
+        Resolved in the same partial `action` match group as `storeHoursDisabled`.
+      operationId: store-hours/enabled
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: storeHours
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-store-hours-enabled"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  petCommentCreated:
+    post:
+      summary: Pet comment created webhook
+      description: |
+        One of several events whose required `action` enum is `created`.
+        After unique `action` values are handled, this variant is resolved by its required fields.
+      operationId: pet-comment/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: petComment
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-pet-comment-created"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  catalogDefinitionCreated:
+    post:
+      summary: Catalog definition created webhook
+      description: |
+        Also uses `action: created`, but requires `definition` instead of `comment`.
+        Shows how colliding enum values fall through to required-field partitioning.
+      operationId: catalog-definition/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: catalogDefinition
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-catalog-definition-created"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  orderCreated:
+    post:
+      summary: Order created webhook
+      description: |
+        Another `action: created` event. When several variants share the same top-level enum value,
+        a required nested enum (`metadata.kind`) provides the next discrimination step.
+      operationId: order/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: order
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-order-created"
+      responses:
+        "200":
+          description: Return a 200 status to indicate that the data was received successfully
+  appointmentCreated:
+    post:
+      summary: Appointment created webhook
+      description: |
+        Also uses `action: created` with required `metadata`, but the nested `kind` enum is `appointment`
+        instead of `order`.
+      operationId: appointment/created
+      parameters:
+        - name: X-Petstore-Event
+          in: header
+          example: appointment
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/webhook-appointment-created"
       responses:
         "200":
           description: Return a 200 status to indicate that the data was received successfully
@@ -133,8 +267,12 @@ components:
     healthCheck:
       type: object
       required:
+        - eventType
         - message
       properties:
+        eventType:
+          type: string
+          enum: [healthCheck]
         message:
           type: string
     inventoryUpdate:
@@ -147,6 +285,145 @@ components:
           type: string
         quantity:
           type: integer
+    webhook-store-hours-disabled:
+      title: store hours disabled event
+      type: object
+      required:
+        - action
+        - store
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [disabled]
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+        sender:
+          $ref: "#/components/schemas/customer"
+    webhook-store-hours-enabled:
+      title: store hours enabled event
+      type: object
+      required:
+        - action
+        - store
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [enabled]
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+        sender:
+          $ref: "#/components/schemas/customer"
+    webhook-pet-comment-created:
+      title: pet comment created event
+      type: object
+      required:
+        - action
+        - comment
+        - pet
+        - sender
+      properties:
+        action:
+          type: string
+          enum: [created]
+        comment:
+          $ref: "#/components/schemas/pet-comment"
+        pet:
+          $ref: "#/components/schemas/pet-summary"
+        sender:
+          $ref: "#/components/schemas/customer"
+    webhook-catalog-definition-created:
+      title: catalog definition created event
+      type: object
+      required:
+        - action
+        - definition
+      properties:
+        action:
+          type: string
+          enum: [created]
+        definition:
+          $ref: "#/components/schemas/catalog-definition"
+    webhook-order-created:
+      title: order created event
+      type: object
+      required:
+        - action
+        - metadata
+        - store
+      properties:
+        action:
+          type: string
+          enum: [created]
+        metadata:
+          $ref: "#/components/schemas/webhook-metadata-order"
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+    webhook-appointment-created:
+      title: appointment created event
+      type: object
+      required:
+        - action
+        - metadata
+        - store
+      properties:
+        action:
+          type: string
+          enum: [created]
+        metadata:
+          $ref: "#/components/schemas/webhook-metadata-appointment"
+        store:
+          $ref: "#/components/schemas/store-webhooks"
+    webhook-metadata-order:
+      type: object
+      required:
+        - kind
+        - reference
+      properties:
+        kind:
+          type: string
+          enum: [order]
+        reference:
+          type: string
+    webhook-metadata-appointment:
+      type: object
+      required:
+        - kind
+        - reference
+      properties:
+        kind:
+          type: string
+          enum: [appointment]
+        reference:
+          type: string
+    pet-comment:
+      type: object
+      required:
+        - id
+        - body
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+    pet-summary:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    catalog-definition:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
     adoptedPet:
       type: object
       required:
@@ -256,7 +533,7 @@ components:
 Output
 ------
 
-Running gatherer + `WebHookMiddleware::generate()` against the input above emits these files. The spec defines four webhooks: `healthCheck` and `inventoryUpdate` are resolved by matching headers (and field fingerprints); `petLifecycle` and `storePolicy` use an `Event` enum with discriminator `match` on `eventType` and `action`. All resolution lives in `Internal\WebHook\WebHooks`:
+Running gatherer + `WebHookMiddleware::generate()` against the input above emits these files. Header-resolved webhooks are grouped in nested `if` blocks that first narrow by declared header parameters (presence, then spec-constrained values), then by body enums and required fields. Discriminated webhooks (`petLifecycle`, `storePolicy`) are resolved first via `detectDiscriminatedEvent()`. All resolution lives in `Internal\WebHook\WebHooks`:
 src/Internal/WebHook/Hydrator.php
 ---------------------------------
 
@@ -271,6 +548,12 @@ final class Hydrator
         return match ($className) {
             \ApiClients\Client\Example\Schema\HealthCheck::class => $this->hydrateSchemaHealthCheck($data),
             \ApiClients\Client\Example\Schema\InventoryUpdate::class => $this->hydrateSchemaInventoryUpdate($data),
+            \ApiClients\Client\Example\Schema\WebhookStoreHoursDisabled::class => $this->hydrateSchemaWebhookStoreHoursDisabled($data),
+            \ApiClients\Client\Example\Schema\WebhookStoreHoursEnabled::class => $this->hydrateSchemaWebhookStoreHoursEnabled($data),
+            \ApiClients\Client\Example\Schema\WebhookPetCommentCreated::class => $this->hydrateSchemaWebhookPetCommentCreated($data),
+            \ApiClients\Client\Example\Schema\WebhookCatalogDefinitionCreated::class => $this->hydrateSchemaWebhookCatalogDefinitionCreated($data),
+            \ApiClients\Client\Example\Schema\WebhookOrderCreated::class => $this->hydrateSchemaWebhookOrderCreated($data),
+            \ApiClients\Client\Example\Schema\WebhookAppointmentCreated::class => $this->hydrateSchemaWebhookAppointmentCreated($data),
             \ApiClients\Client\Example\Schema\AdoptedPet::class => $this->hydrateSchemaAdoptedPet($data),
             \ApiClients\Client\Example\Schema\SurrenderedPet::class => $this->hydrateSchemaSurrenderedPet($data),
             \ApiClients\Client\Example\Schema\WebhookStorePolicyCreated::class => $this->hydrateSchemaWebhookStorePolicyCreated($data),
@@ -280,11 +563,35 @@ final class Hydrator
     }
     private function hydrateSchemaHealthCheck(array $data): \ApiClients\Client\Example\Schema\HealthCheck
     {
-        return new \ApiClients\Client\Example\Schema\HealthCheck(message: $data['message']);
+        return new \ApiClients\Client\Example\Schema\HealthCheck(eventType: $data['eventType'], message: $data['message']);
     }
     private function hydrateSchemaInventoryUpdate(array $data): \ApiClients\Client\Example\Schema\InventoryUpdate
     {
         return new \ApiClients\Client\Example\Schema\InventoryUpdate(sku: $data['sku'], quantity: $data['quantity']);
+    }
+    private function hydrateSchemaWebhookStoreHoursDisabled(array $data): \ApiClients\Client\Example\Schema\WebhookStoreHoursDisabled
+    {
+        return new \ApiClients\Client\Example\Schema\WebhookStoreHoursDisabled(action: $data['action'], store: $this->hydrate(\ApiClients\Client\Example\Schema\StoreWebhooks::class, $data['store']), sender: $this->hydrate(\ApiClients\Client\Example\Schema\Customer::class, $data['sender']));
+    }
+    private function hydrateSchemaWebhookStoreHoursEnabled(array $data): \ApiClients\Client\Example\Schema\WebhookStoreHoursEnabled
+    {
+        return new \ApiClients\Client\Example\Schema\WebhookStoreHoursEnabled(action: $data['action'], store: $this->hydrate(\ApiClients\Client\Example\Schema\StoreWebhooks::class, $data['store']), sender: $this->hydrate(\ApiClients\Client\Example\Schema\Customer::class, $data['sender']));
+    }
+    private function hydrateSchemaWebhookPetCommentCreated(array $data): \ApiClients\Client\Example\Schema\WebhookPetCommentCreated
+    {
+        return new \ApiClients\Client\Example\Schema\WebhookPetCommentCreated(action: $data['action'], comment: $this->hydrate(\ApiClients\Client\Example\Schema\PetComment::class, $data['comment']), pet: $this->hydrate(\ApiClients\Client\Example\Schema\PetSummary::class, $data['pet']), sender: $this->hydrate(\ApiClients\Client\Example\Schema\Customer::class, $data['sender']));
+    }
+    private function hydrateSchemaWebhookCatalogDefinitionCreated(array $data): \ApiClients\Client\Example\Schema\WebhookCatalogDefinitionCreated
+    {
+        return new \ApiClients\Client\Example\Schema\WebhookCatalogDefinitionCreated(action: $data['action'], definition: $this->hydrate(\ApiClients\Client\Example\Schema\CatalogDefinition::class, $data['definition']));
+    }
+    private function hydrateSchemaWebhookOrderCreated(array $data): \ApiClients\Client\Example\Schema\WebhookOrderCreated
+    {
+        return new \ApiClients\Client\Example\Schema\WebhookOrderCreated(action: $data['action'], metadata: $this->hydrate(\ApiClients\Client\Example\Schema\WebhookMetadataOrder::class, $data['metadata']), store: $this->hydrate(\ApiClients\Client\Example\Schema\StoreWebhooks::class, $data['store']));
+    }
+    private function hydrateSchemaWebhookAppointmentCreated(array $data): \ApiClients\Client\Example\Schema\WebhookAppointmentCreated
+    {
+        return new \ApiClients\Client\Example\Schema\WebhookAppointmentCreated(action: $data['action'], metadata: $this->hydrate(\ApiClients\Client\Example\Schema\WebhookMetadataAppointment::class, $data['metadata']), store: $this->hydrate(\ApiClients\Client\Example\Schema\StoreWebhooks::class, $data['store']));
     }
     private function hydrateSchemaAdoptedPet(array $data): \ApiClients\Client\Example\Schema\AdoptedPet
     {
@@ -315,6 +622,12 @@ enum Event
 {
     case HealthCheck;
     case InventoryUpdate;
+    case WebhookStoreHoursDisabled;
+    case WebhookStoreHoursEnabled;
+    case WebhookPetCommentCreated;
+    case WebhookCatalogDefinitionCreated;
+    case WebhookOrderCreated;
+    case WebhookAppointmentCreated;
     case AdoptedPet;
     case SurrenderedPet;
     case WebhookStorePolicyCreated;
@@ -330,18 +643,12 @@ namespace ApiClients\Client\Example\Internal\WebHook;
 
 final class WebHooks
 {
+    private static array $parsedSchemas = [];
     public function __construct(private readonly \League\OpenAPIValidation\Schema\SchemaValidator $requestSchemaValidator, private readonly \ApiClients\Client\Example\Internal\WebHook\Hydrator $hydrator)
     {
     }
-    public function resolve(array $headers, array $data): \ApiClients\Client\Example\Schema\HealthCheck|\ApiClients\Client\Example\Schema\InventoryUpdate|\ApiClients\Client\Example\Schema\AdoptedPet|\ApiClients\Client\Example\Schema\SurrenderedPet|\ApiClients\Client\Example\Schema\WebhookStorePolicyCreated|\ApiClients\Client\Example\Schema\WebhookStorePolicyDeleted
+    public function resolve(array $headers, array $data): object
     {
-        $headers = (static function (array $headers): array {
-            $loweredHeaders = [];
-            foreach ($headers as $key => $value) {
-                $loweredHeaders[strtolower($key)] = $value;
-            }
-            return $loweredHeaders;
-        })($headers);
         return match ($this->detectDiscriminatedEvent($data)) {
             Event::AdoptedPet => $this->validatedHydrate(\ApiClients\Client\Example\Schema\AdoptedPet::class, $data),
             Event::SurrenderedPet => $this->validatedHydrate(\ApiClients\Client\Example\Schema\SurrenderedPet::class, $data),
@@ -374,19 +681,47 @@ final class WebHooks
         }
         return null;
     }
-    private function resolveByHeaders(array $headers, array $data): \ApiClients\Client\Example\Schema\HealthCheck|\ApiClients\Client\Example\Schema\InventoryUpdate
+    private function resolveByHeaders(array $headers, array $data): object
     {
         $error = new \RuntimeException('No webhook matching given headers and data');
         try {
-            if ($headers['x-petstore-event'] === 'healthCheck' && array_key_exists('message', $data)) {
-                return $this->validatedHydrate(\ApiClients\Client\Example\Schema\HealthCheck::class, $data);
-            }
-        } catch (\Throwable $throwable) {
-            $error = $throwable;
-        }
-        try {
-            if ($headers['x-petstore-event'] === 'inventoryUpdate' && array_key_exists('sku', $data) && array_key_exists('quantity', $data)) {
-                return $this->validatedHydrate(\ApiClients\Client\Example\Schema\InventoryUpdate::class, $data);
+            if (array_key_exists('x-petstore-event', $headers)) {
+                $resolvedPayload = match ($headers['x-petstore-event']) {
+                    'healthCheck' => $this->validatedHydrate(\ApiClients\Client\Example\Schema\HealthCheck::class, $data),
+                    'inventoryUpdate' => $this->validatedHydrate(\ApiClients\Client\Example\Schema\InventoryUpdate::class, $data),
+                    default => null,
+                };
+                if (!($resolvedPayload === null)) {
+                    return $resolvedPayload;
+                }
+                if (array_key_exists('action', $data)) {
+                    $resolvedPayload = match ($data['action']) {
+                        'disabled' => $this->validatedHydrate(\ApiClients\Client\Example\Schema\WebhookStoreHoursDisabled::class, $data),
+                        'enabled' => $this->validatedHydrate(\ApiClients\Client\Example\Schema\WebhookStoreHoursEnabled::class, $data),
+                        default => null,
+                    };
+                    if (!($resolvedPayload === null)) {
+                        return $resolvedPayload;
+                    }
+                    if ($data['action'] === 'created') {
+                        if (array_key_exists('metadata', $data) && array_key_exists('kind', $data['metadata'])) {
+                            $resolvedPayload = match ($data['metadata']['kind']) {
+                                'order' => $this->validatedHydrate(\ApiClients\Client\Example\Schema\WebhookOrderCreated::class, $data),
+                                'appointment' => $this->validatedHydrate(\ApiClients\Client\Example\Schema\WebhookAppointmentCreated::class, $data),
+                                default => null,
+                            };
+                            if (!($resolvedPayload === null)) {
+                                return $resolvedPayload;
+                            }
+                        }
+                        if (array_key_exists('comment', $data) && array_key_exists('pet', $data) && array_key_exists('sender', $data)) {
+                            return $this->validatedHydrate(\ApiClients\Client\Example\Schema\WebhookPetCommentCreated::class, $data);
+                        }
+                        if (array_key_exists('definition', $data)) {
+                            return $this->validatedHydrate(\ApiClients\Client\Example\Schema\WebhookCatalogDefinitionCreated::class, $data);
+                        }
+                    }
+                }
             }
         } catch (\Throwable $throwable) {
             $error = $throwable;
@@ -395,7 +730,10 @@ final class WebHooks
     }
     private function validatedHydrate(string $className, array $data): object
     {
-        $this->requestSchemaValidator->validate($data, \cebe\openapi\Reader::readFromJson($className::SCHEMA_JSON, \cebe\openapi\spec\Schema::class));
+        if (!array_key_exists($className, self::$parsedSchemas)) {
+            self::$parsedSchemas[$className] = \cebe\openapi\Reader::readFromJson($className::SCHEMA_JSON, \cebe\openapi\spec\Schema::class);
+        }
+        $this->requestSchemaValidator->validate($data, self::$parsedSchemas[$className]);
         return $this->hydrator->hydrate(className::class, $data);
     }
 }
@@ -461,11 +799,12 @@ Schema classes (`Schema\Ping`, `Schema\Push`, …) are still emitted by [`genera
 
 For each webhook delivery, generated code resolves the payload in this order:
 
-1. **Headers** — match declared webhook header parameters (e.g. `X-Event-Type`)
-2. **Discriminator** — when the spec defines `discriminator`, match `$data[$propertyName]`
-3. **Field fingerprint** — required fields must be present in `$data`
-4. **Validation** — `SchemaValidator` against generated `SCHEMA_JSON`
-5. **Hydration** — `Internal\WebHook\Hydrator` maps arrays to readonly schema objects (no EventSauce)
+1. **Discriminator** — when the spec defines `discriminator`, match `$data[$propertyName]` via `detectDiscriminatedEvent()`
+2. **Headers** — match declared webhook header parameters (e.g. `X-Petstore-Event`) and hoist shared presence checks
+3. **Body enums** — partial `match` on required single-value enums (top-level and nested); colliding values recurse to deeper enums or required fields
+4. **Field fingerprint** — remaining variants require their spec-mandated fields in `$data`
+5. **Validation** — `SchemaValidator` against generated `SCHEMA_JSON`
+6. **Hydration** — `Internal\WebHook\Hydrator` maps arrays to readonly schema objects (no EventSauce)
 
 ### Behaviour
 

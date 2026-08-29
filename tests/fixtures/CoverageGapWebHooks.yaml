@@ -1,0 +1,210 @@
+openapi: "3.1.0"
+info:
+  version: 1.0.0
+  title: Coverage Gap WebHook Test API
+  license:
+    name: MIT
+webhooks:
+  taggedNotify:
+    post:
+      summary: Notify webhook with tagged items
+      operationId: notify/tagged
+      parameters:
+        - name: X-Notify-Const
+          in: header
+          schema:
+            type: string
+            const: tagged
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/taggedNotify"
+      responses:
+        "200":
+          description: OK
+  sharedConstAlpha:
+    post:
+      summary: Shared const header alpha
+      operationId: notify/shared-alpha
+      parameters:
+        - name: X-Shared-Const
+          in: header
+          schema:
+            type: string
+            const: shared
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/sharedConstAlpha"
+      responses:
+        "200":
+          description: OK
+  sharedConstBeta:
+    post:
+      summary: Shared const header beta
+      operationId: notify/shared-beta
+      parameters:
+        - name: X-Shared-Const
+          in: header
+          schema:
+            type: string
+            const: shared
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/sharedConstBeta"
+      responses:
+        "200":
+          description: OK
+  plainNotify:
+    post:
+      summary: Notify webhook without fixed header value
+      operationId: notify/plain
+      parameters:
+        - name: X-Notify-Presence
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/plainNotify"
+      responses:
+        "200":
+          description: OK
+  dualContent:
+    post:
+      summary: Dual content type webhook
+      operationId: notify/dual-content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/dualContentPayload"
+          application/vnd.test+json:
+            schema:
+              $ref: "#/components/schemas/dualContentPayload"
+      responses:
+        "200":
+          description: OK
+  duplicatedKind:
+    post:
+      summary: Duplicate discriminator mapping webhook
+      operationId: kind/duplicated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/kindPayload"
+              discriminator:
+                propertyName: kind
+                mapping:
+                  alpha: "#/components/schemas/kindPayload"
+                  beta: "#/components/schemas/kindPayload"
+      responses:
+        "200":
+          description: OK
+  intHeaderNotify:
+    post:
+      summary: Integer header webhook
+      operationId: notify/int-header
+      parameters:
+        - name: X-Int-Header
+          in: header
+          schema:
+            type: integer
+            enum: [42]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/intHeaderNotify"
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    taggedNotify:
+      type: object
+      required:
+        - message
+        - tags
+      properties:
+        message:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/notifyTag"
+        note:
+          type: string
+          nullable: true
+    notifyTag:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    sharedConstAlpha:
+      type: object
+      required:
+        - alpha
+      properties:
+        alpha:
+          type: string
+    sharedConstBeta:
+      type: object
+      required:
+        - beta
+      properties:
+        beta:
+          type: integer
+    plainNotify:
+      type: object
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+    dualContentPayload:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+    kindPayload:
+      type: object
+      required:
+        - kind
+        - id
+      properties:
+        kind:
+          type: string
+          enum: [alpha, beta]
+        id:
+          type: integer
+    intHeaderNotify:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: integer
