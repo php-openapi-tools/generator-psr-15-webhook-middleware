@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8f71cd19595777cfbed531d053da5c39",
+    "content-hash": "46477d35491b7e56a72da0ac9d9160ca",
     "packages": [
         {
             "name": "devizzent/cebe-php-openapi",
@@ -278,35 +278,35 @@
         },
         {
             "name": "league/openapi-psr7-validator",
-            "version": "0.21",
+            "version": "0.24",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/openapi-psr7-validator.git",
-                "reference": "bccdd3f5037c796fff3ef3f11dcf8c073aaa6192"
+                "reference": "10675b6eb7eb100ebe99378206272a963ed764e7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/openapi-psr7-validator/zipball/bccdd3f5037c796fff3ef3f11dcf8c073aaa6192",
-                "reference": "bccdd3f5037c796fff3ef3f11dcf8c073aaa6192",
+                "url": "https://api.github.com/repos/thephpleague/openapi-psr7-validator/zipball/10675b6eb7eb100ebe99378206272a963ed764e7",
+                "reference": "10675b6eb7eb100ebe99378206272a963ed764e7",
                 "shasum": ""
             },
             "require": {
                 "devizzent/cebe-php-openapi": "^1.0",
                 "ext-json": "*",
-                "league/uri": "^6.3",
+                "league/uri": "^6.3 || ^7.0",
                 "php": ">=7.2",
                 "psr/cache": "^1.0 || ^2.0 || ^3.0",
-                "psr/http-message": "^1.0",
+                "psr/http-message": "^1.0 || ^2.0",
                 "psr/http-server-middleware": "^1.0",
                 "respect/validation": "^1.1.3 || ^2.0",
                 "riverline/multipart-parser": "^2.0.3",
                 "symfony/polyfill-php80": "^1.27",
-                "webmozart/assert": "^1.4"
+                "webmozart/assert": "^1.4 || ^2.0"
             },
             "require-dev": {
                 "doctrine/coding-standard": "^8.0",
-                "guzzlehttp/psr7": "^1.5",
-                "hansott/psr7-cookies": "^3.0.2",
+                "guzzlehttp/psr7": "^2.0",
+                "hansott/psr7-cookies": "^3.0.2 || ^4.0",
                 "phpstan/extension-installer": "^1.0",
                 "phpstan/phpstan": "^1",
                 "phpstan/phpstan-phpunit": "^1",
@@ -334,9 +334,9 @@
             ],
             "support": {
                 "issues": "https://github.com/thephpleague/openapi-psr7-validator/issues",
-                "source": "https://github.com/thephpleague/openapi-psr7-validator/tree/0.21"
+                "source": "https://github.com/thephpleague/openapi-psr7-validator/tree/0.24"
             },
-            "time": "2023-04-03T21:49:07+00:00"
+            "time": "2026-05-08T15:27:06+00:00"
         },
         {
             "name": "league/uri",
